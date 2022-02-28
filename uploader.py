@@ -1,23 +1,19 @@
 #!/usr/bin/env python3
 
-# HOW TO USE ME
-# python /home/julen/programas/PhD/extras/transferwee.py download https://we.tl/t-IlLzvdOppt
-# you can stpre where you want wioth -o PATH/FILENAME
-
 #
 # Copyright (c) 2018-2021 Leonardo Taccari
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
 # are met:
-# 
+#
 # 1. Redistributions of source code must retain the above copyright
 #    notice, this list of conditions and the following disclaimer.
 # 2. Redistributions in binary form must reproduce the above copyright
 #    notice, this list of conditions and the following disclaimer in the
 #    documentation and/or other materials provided with the distribution.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 # "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
 # TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
@@ -175,7 +171,7 @@ def _prepare_session() -> requests.Session:
     return s
 
 
-def _prepare_email_upload(filenames: List[str], message: str,
+def _prepare_email_upload(filenames: List[str], display_name: str, message: str,
                           sender: str, recipients: List[str],
                           session: requests.Session) -> str:
     """Given a list of filenames, message a sender and recipients prepare for
@@ -186,6 +182,7 @@ def _prepare_email_upload(filenames: List[str], message: str,
     j = {
         "files": [_file_name_and_size(f) for f in filenames],
         "from": sender,
+        "display_name": display_name,
         "message": message,
         "recipients": recipients,
         "ui_language": "en",
@@ -212,7 +209,7 @@ def _verify_email_upload(transfer_id: str, session: requests.Session) -> str:
     return r.json()
 
 
-def _prepare_link_upload(filenames: List[str], message: str,
+def _prepare_link_upload(filenames: List[str], display_name: str, message: str,
                          session: requests.Session) -> str:
     """Given a list of filenames and a message prepare for the link upload.
 
@@ -220,6 +217,7 @@ def _prepare_link_upload(filenames: List[str], message: str,
     """
     j = {
         "files": [_file_name_and_size(f) for f in filenames],
+        "display_name": display_name,
         "message": message,
         "ui_language": "en",
     }
@@ -270,10 +268,10 @@ def _upload_chunks(transfer_id: str, file_id: str, file: str,
             json=j)
         url = r.json().get('url')
         requests.options(url,
-                             headers={
-                                 'Origin': 'https://wetransfer.com',
-                                 'Access-Control-Request-Method': 'PUT',
-                             })
+                         headers={
+                             'Origin': 'https://wetransfer.com',
+                             'Access-Control-Request-Method': 'PUT',
+                         })
         requests.put(url, data=chunk)
 
     j = {
@@ -297,11 +295,12 @@ def _finalize_upload(transfer_id: str, session: requests.Session) -> str:
     return r.json()
 
 
-def upload(files: List[str], message: str = '', sender: str = None,
+def upload(files: List[str], display_name: str = '', message: str = '', sender: str = None,
            recipients: List[str] = []) -> str:
     """Given a list of files upload them and return the corresponding URL.
 
     Also accepts optional parameters:
+     - `display_name': name used as a title of the transfer
      - `message': message used as a description of the transfer
      - `sender': email address used to receive an ACK if the upload is
                  successfull. For every download by the recipients an email
@@ -331,11 +330,11 @@ def upload(files: List[str], message: str = '', sender: str = None,
     if sender and recipients:
         # email upload
         transfer_id = \
-            _prepare_email_upload(files, message, sender, recipients, s)['id']
+            _prepare_email_upload(files, display_name, message, sender, recipients, s)['id']
         _verify_email_upload(transfer_id, s)
     else:
         # link upload
-        transfer_id = _prepare_link_upload(files, message, s)['id']
+        transfer_id = _prepare_link_upload(files, display_name, message, s)['id']
 
     for f in files:
         file_id = _prepare_file_upload(transfer_id, f, s)['id']
